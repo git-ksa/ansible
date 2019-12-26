@@ -1,0 +1,90 @@
+#Установка патчей СУБД
+ - name: copy OPatch directory
+   shell: /bin/cp -Rf /u01/distr/{{ oracle_database_release }}/patch/OPatch {{ oracle_database_oracle_home }}
+   become: yes
+   become_user: oracle
+   when: "oracle_database_release=='11.2.0.4ee' or oracle_database_release=='12.2.0.1ee'"
+
+ - name: Insert/Update .bash_profile
+   blockinfile:
+     path: /home/oracle/.bash_profile
+     #insertafter: "PATH=$ORACLE_HOME"
+     block: |   
+       export ORACLE_HOME={{ oracle_database_oracle_home }}
+       export ORACLE_BASE={{ oracle_database_oracle_base }}
+       export PATH=$ORACLE_HOME/bin:$PATH
+       export NLS_LANG=american_CIS.AL32UTF8
+       export EDITOR=vi
+       export LD_LIBRARY_PATH=$ORACLE_HOME/lib:/lib:/usr/lib:/usr/local/lib:/lib64:/usr/lib64:/usr/local/lib64
+       export PS1='[\h:\u@${ORACLE_SID}]$ '
+       export NLS_DATE_FORMAT="DD.MM.YYYY HH24:MI:SS"
+       export HISTTIMEFORMAT="%Y.%m.%d %H:%M:%S "
+       export HISTCONTROL=erasedups
+       export HISTSIZE=100000
+       export HISTFILESIZE=100000
+     marker: "# {mark} ANSIBLE ORACLE_DATABASE #"
+
+ - name: Copy files .bashrc, .bash_aliases, dbora, ocm.rsp
+   copy: 
+     src: files/{{ item.src_name }}
+     dest: "{{ item.dest }}"
+     owner: oracle
+     group: oinstall
+     backup: yes
+     mode: "{{ item.mode }}"
+   with_items:
+     - {src_name: .bash_aliases, dest: /home/oracle, mode: u=rw,g=rw,o=r }
+     - {src_name: .bashrc, dest: /home/oracle, mode: u=rw,g=rw,o=r }
+     - {src_name: dbora, dest: /etc/init.d, mode: u=rwx,g=rwx,o=rx }
+     - {src_name: ocm.rsp, dest: "{{ oracle_database_distr }}/patch", mode: u=rw,g=rw,o=r }
+
+ - name: Install patch update 28204707 (for 11.2.0.4)
+   shell: $ORACLE_HOME/OPatch/opatch apply -silent -ocmrf {{ oracle_database_distr }}/patch/ocm.rsp
+   environment: 
+     ORACLE_HOME: "{{ oracle_database_oracle_home }}"
+   args:
+     chdir: "{{ oracle_database_distr }}/patch/28204707"
+     removes: "{{ oracle_database_distr }}/patch/28204707"
+   become: yes
+   become_user: oracle
+   register: opatch_result
+   when: "oracle_database_release=='11.2.0.4ee'"
+      
+ - name: install oracle patch results 11.2.0.4
+   debug:
+     var: opatch_result
+   when: "oracle_database_release=='11.2.0.4ee'"
+
+ - name: Install patch update 29314339 (for 12.2.0.1)
+   shell: $ORACLE_HOME/OPatch/opatch apply -silent -ocmrf {{ oracle_database_distr }}/patch/ocm.rsp
+   environment: 
+     ORACLE_HOME: "{{ oracle_database_oracle_home }}"
+   args:
+     chdir: "{{ oracle_database_distr }}/patch/29314339"
+     removes: "{{ oracle_database_distr }}/patch/29314339"
+   become: yes
+   become_user: oracle
+   register: opatch_result
+   when: "oracle_database_release=='12.2.0.1ee'"
+      
+ - name: install oracle patch results 12.2.0.1
+   debug:
+     var: opatch_result
+   when: "oracle_database_release=='12.2.0.1ee'"
+
+ - name: Install patch update 29834717 (for 19.4.0.0)
+   shell: $ORACLE_HOME/OPatch/opatch apply -silent -ocmrf {{ oracle_database_distr }}/patch/ocm.rsp
+   environment: 
+     ORACLE_HOME: "{{ oracle_database_oracle_home }}"
+   args:
+     chdir: "{{ oracle_database_distr }}/patch/29834717"
+     removes: "{{ oracle_database_distr }}/patch/29834717"
+   become: yes
+   become_user: oracle
+   register: opatch_result
+   when: "oracle_database_release=='19.4.0.0ee'"
+      
+ - name: install oracle patch results 19.4.0.0
+   debug:
+     var: opatch_result
+   when: "oracle_database_release=='19.4.0.0ee'"

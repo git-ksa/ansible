@@ -1,0 +1,8 @@
+{{ oracle_database_oracle_sid }} =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = {{ host_ip }})(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = {{ oracle_database_oracle_sid }})
+    )
+  )

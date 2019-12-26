@@ -1,0 +1,6 @@
+#!/bin/bash
+. /home/oracle/.bash_profile
+cd /home/oracle/scripts
+{{ oracle_database_oracle_home }}/bin/orapwd password=change_on_install_2020 file={{ oracle_database_oracle_home }}/dbs/orapw{{ oracle_database_oracle_sid }} force=y
+{{ oracle_database_oracle_home }}/bin/lsnrctl start
+{{ oracle_database_oracle_home }}/bin/sqlplus / as sysdba @create_db_{{ oracle_database_oracle_sid }}.sql

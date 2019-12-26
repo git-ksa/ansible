@@ -1,0 +1,10 @@
+- name: Install RDBMS Oracle v 11.2.0.1ee, 11.2.0.4ee, 12.2.0.1ee, 19.4.0.0ee
+  hosts: "{{ host_list }}"
+  become: true
+  become_user: root
+  gather_facts: True
+  tasks:
+    - include_role:
+         name: subscription
+    - include_role:
+         name: oracle

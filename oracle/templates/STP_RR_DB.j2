@@ -1,0 +1,33 @@
+#!/bin/sh
+OS=`cat /etc/oratab |grep ^[^#]|awk -F: '{ print $1}'`
+OH=`cat /etc/oratab |grep ^[^#]|awk -F: '{ print $2}'`
+export ORACLE_HOME=$OH
+export ORACLE_SID=$OS
+
+export ORACLE_BASE={{ oracle_database_oracle_base }}
+export PATH=$ORACLE_HOME/bin:$PATH
+
+S1=`lsnrctl status |grep "Log File"|awk '{ print $4}'`
+ADR_LISTENER_HOME=${S1%%/alert/log.xml}
+ADR_LISTENER_LOG=${S1%%/alert/log.xml}/trace/listener.log
+
+
+# LISTENER
+zip $ADR_LISTENER_HOME/trace/listener_`date +"%Y"_"%m"_"%d"`.zip $ADR_LISTENER_LOG
+cat /dev/null > $ADR_LISTENER_LOG
+find $ADR_LISTENER_HOME/trace/ -ctime +30 -name "listener_*" -exec rm -rf {} \;
+
+find $ADR_LISTENER_HOME/alert/ -ctime +7 -name "log_*" -exec rm -rf {} \;
+
+# RDBMS LOG
+export ADR_RDBMS_HOME="$(echo "select value from v\$parameter where name = 'background_dump_dest';" | sqlplus -S / as sysdba|tail -2|head -1)"
+zip $ADR_RDBMS_HOME/alert_$ORACLE_SID.log_`date +"%Y"_"%m"_"%d"`.zip $ADR_RDBMS_HOME/alert_$ORACLE_SID.log
+cat /dev/null > $ADR_RDBMS_HOME/alert_$ORACLE_SID.log
+find $ADR_RDBMS_HOME/ -ctime +30 -name "alert_$ORACLE_SID.log_*" -exec rm -rf {} \;
+
+# AUDIT FILES
+export AUDIT_PATH="$(echo "select value from v\$parameter where name = 'audit_file_dest';" | sqlplus -S / as sysdba|tail -2|head -1)"
+find  $AUDIT_PATH -name "*.aud" | zip $AUDIT_PATH/audit_files_`date +"%Y"_"%m"_"%d"`.zip -@
+#zip $AUDIT_PATH/audit_files_`date +"%Y"_"%m"_"%d"`.zip $AUDIT_PATH/*.aud
+find $AUDIT_PATH -ctime +30 -name "audit_files_*.zip" -exec rm -rf {} \;
+find $AUDIT_PATH -ctime +7 -name "*.aud" -exec rm -rf {} \;

@@ -1,0 +1,21 @@
+- include_vars: ../vars/oracle_vars.yml
+#  tags: [always]
+
+- import_tasks: oracle_preinstall.yml
+  #when: ansible_pkg_mgr == "yum" and ( ansible_distribution == "RedHat" or ansible_distribution == "CentOS" or ansible_distribution == "OracleLinux")
+#  tags: [oracle]
+
+- import_tasks: oracle_install_12.yml
+  when: oracle_database_release in versions_12pre
+#  tags: [oracle]
+
+- import_tasks: oracle_install_19.yml
+  when: "oracle_database_release=='19.4.0.0ee'"
+#  tags: [oracle]
+
+- import_tasks: oracle_install_patch.yml
+#  tags: [oracle]
+
+- import_tasks: oracle_create_db.yml
+  when: oracle_database_oracle_sid is defined
+#  tags: [oracle]

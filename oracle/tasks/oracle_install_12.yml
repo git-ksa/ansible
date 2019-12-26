@@ -1,0 +1,28 @@
+# Install 11-12 Oracle   
+ - set_fact: inst_cmd="{{ oracle_database_distr }}/database/runInstaller -responseFile {{ oracle_database_distr }}/db{{ oracle_database_release | replace('.','') }}.rsp -ignorePrereq -ignoreSysPrereqs -silent -waitforcompletion"
+
+ - name: command for runInstaller 12pre
+   debug: var=inst_cmd
+
+ - name: Install RDBMS Oracle 12pre
+   shell: "{{ inst_cmd }}"
+   args: 
+     creates: "{{ oracle_database_oracle_home }}/bin/sqlplus"
+   become: yes
+   become_user: oracle
+   register: shell_result
+   failed_when: 
+     - "'Successfully Setup Software.' not in shell_result.stdout_lines"
+     - "'skipped' in shell_result.stdout_lines"
+
+ - name: installation results 12pre
+   debug:
+     var: shell_result
+
+ - name: run post-installation scripts as root
+   shell: "{{item}}"
+   with_items:
+     - "{{ oracle_database_inventory_location }}/orainstRoot.sh"
+     - "{{ oracle_database_oracle_home }}/root.sh"
+   become: yes
+   when: shell_result.changed

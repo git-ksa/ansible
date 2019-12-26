@@ -1,0 +1,75 @@
+startup nomount;
+
+spool /home/oracle/scripts/create_db_{{ oracle_database_oracle_sid }}.log
+
+CREATE DATABASE {{ oracle_database_oracle_sid }}
+   USER SYS IDENTIFIED BY {{ oracle_database_sys_password }}
+   USER SYSTEM IDENTIFIED BY {{ oracle_database_sys_password }}
+   LOGFILE GROUP 1 ('/u02/oradata/{{ oracle_database_oracle_sid }}/redo01.log') SIZE 200M,
+           GROUP 2 ('/u02/oradata/{{ oracle_database_oracle_sid }}/redo02.log') SIZE 200M,
+           GROUP 3 ('/u02/oradata/{{ oracle_database_oracle_sid }}/redo03.log') SIZE 200M
+   MAXLOGFILES 12
+   MAXLOGMEMBERS 5
+   MAXLOGHISTORY 1
+   MAXDATAFILES 1000
+   CHARACTER SET CL8MSWIN1251
+   EXTENT MANAGEMENT LOCAL
+   DATAFILE '/u02/oradata/{{ oracle_database_oracle_sid }}/system01.dbf' SIZE 1G reuse autoextend  on next 500M MAXSIZE UNLIMITED
+   SYSAUX DATAFILE '/u02/oradata/{{ oracle_database_oracle_sid }}/sysaux01.dbf' SIZE 1G reuse autoextend  on next 500M MAXSIZE UNLIMITED
+   DEFAULT TABLESPACE users
+      DATAFILE '/u02/oradata/{{ oracle_database_oracle_sid }}/users01.dbf'
+      SIZE 500M REUSE
+   DEFAULT TEMPORARY TABLESPACE temp
+      TEMPFILE '/u02/oradata/{{ oracle_database_oracle_sid }}/temp01.dbf'
+      SIZE 10G REUSE
+   UNDO TABLESPACE undotbs1
+      DATAFILE '/u02/oradata/{{ oracle_database_oracle_sid }}/undotbs01.dbf'
+      SIZE 5G REUSE;
+
+spool off
+
+spool /home/oracle/scripts/create_db_{{ oracle_database_oracle_sid }}_catalog.log
+@{{ oracle_database_oracle_home }}/rdbms/admin/catalog.sql
+spool off
+
+spool /home/oracle/scripts/create_db_{{ oracle_database_oracle_sid }}_catproc.log
+@{{ oracle_database_oracle_home }}/rdbms/admin/catproc.sql
+spool off
+
+alter session set current_schema=SYSTEM;
+
+spool /home/oracle/scripts/create_db_{{ oracle_database_oracle_sid }}_pupbld.log
+@{{ oracle_database_oracle_home }}/sqlplus/admin/pupbld.sql
+spool off
+
+alter session set current_schema=SYS;
+
+CREATE PROFILE ZABBIX_PROFILE
+LIMIT
+  COMPOSITE_LIMIT DEFAULT
+  SESSIONS_PER_USER 100
+  CPU_PER_SESSION UNLIMITED
+  CPU_PER_CALL 20000
+  LOGICAL_READS_PER_SESSION DEFAULT
+  LOGICAL_READS_PER_CALL DEFAULT
+  IDLE_TIME 2
+  CONNECT_TIME 5
+  PRIVATE_SGA DEFAULT
+  FAILED_LOGIN_ATTEMPTS DEFAULT
+  PASSWORD_LIFE_TIME DEFAULT
+  PASSWORD_REUSE_TIME DEFAULT
+  PASSWORD_REUSE_MAX DEFAULT
+  PASSWORD_VERIFY_FUNCTION DEFAULT
+  PASSWORD_LOCK_TIME DEFAULT
+  PASSWORD_GRACE_TIME DEFAULT;
+
+CREATE USER ZABBIX IDENTIFIED BY {{ oracle_database_zabbix_password }}
+  DEFAULT TABLESPACE USERS TEMPORARY TABLESPACE TEMP PROFILE ZABBIX_PROFILE;
+GRANT CONNECT TO ZABBIX;
+GRANT SELECT ANY DICTIONARY TO ZABBIX;
+GRANT SELECT ANY TABLE TO ZABBIX;
+GRANT CREATE SESSION TO ZABBIX;
+
+create spfile from pfile;
+
+exit

@@ -1,0 +1,100 @@
+#Далее создание инстанса БД
+ - name: insert ORACLE_SID to .bash_profile
+   blockinfile:
+     path: /home/oracle/.bash_profile
+     block: |   
+       export ORACLE_SID={{ oracle_database_oracle_sid }}
+     marker: "# {mark} ANSIBLE ORACLE_DATABASE_SID #"
+
+ - name: create directory for oracle scripts and data
+   file:
+     path: "{{ item }}"
+     state: directory
+     mode: 0755
+     owner: oracle
+     group: oinstall
+   with_items:
+     - /home/oracle/scripts
+     - "/u01/oradata/{{ oracle_database_oracle_sid }}"
+     - "{{ oracle_database_oracle_base }}/admin"
+     - "{{ oracle_database_oracle_base }}/admin/{{ oracle_database_oracle_sid }}"
+     - "{{ oracle_database_oracle_base }}/admin/{{ oracle_database_oracle_sid }}/adump"
+     - /u02
+     - /u02/oradata
+     - "/u02/oradata/{{ oracle_database_oracle_sid }}"
+
+ - name: copy template sql for create DB
+   template:
+     src: "{{ item.src_name }}"
+     dest: "{{ item.dest}}"
+     owner: oracle
+     group: oinstall
+     mode: "{{ item.mode}}"
+     backup: yes
+   with_items:
+     - {src_name: templates/create_database.j2, dest: "/home/oracle/scripts/create_db_{{ oracle_database_oracle_sid }}.sql", mode: u=rw,g=r,o=r }
+     - {src_name: templates/create_database_sh.j2, dest: "/home/oracle/scripts/create_db_{{ oracle_database_oracle_sid }}.sh", mode: u=rwx,g=rx,o=rx }
+     - {src_name: templates/init.j2, dest: "{{ oracle_database_oracle_home }}/dbs/init{{ oracle_database_oracle_sid }}.ora", mode: u=rw,g=r,o=r }
+     - {src_name: templates/listener.j2, dest: "{{ oracle_database_oracle_home }}/network/admin/listener.ora", mode: u=rw,g=r,o=r }
+     #- {src_name: templates/tnsnames.j2, dest: "{{ oracle_database_oracle_home }}/network/admin/tnsnames.ora", mode: u=rw,g=r,o=r }
+     #- {src_name: templates/oratab.j2, dest: /etc/oratab, mode: u=rw,g=r,o=r }
+     - {src_name: templates/STP_RR_DB.j2, dest: "/home/oracle/scripts/STP_RR_DB.sh", mode: u=rwx,g=rx,o=rx }
+   become: yes
+
+ - name: add tns string
+   blockinfile:
+     path: "{{ oracle_database_oracle_home }}/network/admin/tnsnames.ora"
+     block: |   
+       {{ oracle_database_oracle_sid }} =
+         (DESCRIPTION =
+          (ADDRESS = (PROTOCOL = TCP)(HOST = {{ host_ip }})(PORT = 1521))
+           (CONNECT_DATA =
+             (SERVER = DEDICATED)
+             (SERVICE_NAME = {{ oracle_database_oracle_sid }})
+          )
+         )
+     marker: "# {mark} ANSIBLE ORACLE_DATABASE_SID #"
+     create: yes
+
+ - name: add oratab
+   blockinfile:
+     path: /etc/oratab
+     block: |   
+       {{ oracle_database_oracle_sid }}:{{ oracle_database_oracle_home }}:Y
+     marker: "# {mark} ANSIBLE BLOCK FOR {{ oracle_database_oracle_sid }} #"
+     create: yes
+     owner: oracle
+     group: oinstall
+     mode: "u=rw,g=r,o=r"
+   become: yes
+
+ - name: enable autostart service oracle
+   shell: systemctl enable dbora
+   args:
+     creates: /etc/rc3.d/S99dbora
+
+ - name: start script create db    
+   shell: /home/oracle/scripts/create_db_{{ oracle_database_oracle_sid }}.sh
+   environment: 
+     ORACLE_HOME: "{{ oracle_database_oracle_home }}"
+     ORACLE_SID: "{{ oracle_database_oracle_sid }}"
+   args:
+     chdir: /home/oracle/scripts
+     creates: "/u02/oradata/{{ oracle_database_oracle_sid }}/users01.dbf"
+   become: yes
+   become_user: oracle
+   register: create_db_result
+
+ - name: print create db results
+   debug:
+     var: create_db_result
+
+#РР очистка логов СУБД
+ - name: add rr to cron
+   cron:
+     name: RR clear old log files
+     weekday: "06"
+     hour: "03"
+     minute: "05"
+     user: oracle
+     job: /home/oracle/scripts/STP_RR_DB.sh > STP_RR_DB.log

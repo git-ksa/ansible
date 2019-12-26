@@ -1,0 +1,78 @@
+#Проверка на верно указанные параметры и совместимость с версией ОС  
+ - name: validate oracle database 11g release is supported
+   fail: "msg='{{ oracle_database_release }}release is not valid (supported versions: [11.2.0.1ee, 11.2.0.4ee, 12.2.0.1ee, 19.4.0.0ee])'"
+   when: oracle_database_release is not defined or not oracle_database_release in versions
+
+ - name: validate OS release is supported
+   fail: "msg='{{ os_name }} release on host {{ hostname }} is not support (supported versions: RedHat)'"
+   when: os_name!="RedHat"
+
+#Установка необходимых пакетов
+ - name: Install requires package
+   yum:
+     name:
+       - libaio-devel
+       - compat-libstdc++-33
+       - nfs-utils
+       - compat-libcap1
+       - smartmontools
+       - ksh
+       - rlwrap
+     update_cache: yes
+
+#Установка преинсталл пакетов СУБД Oracle
+ - name: Preinstall RDBMS Oracle
+   yum: name=oracle-database-server-12cR2-preinstall
+   when: oracle_database_release in versions_12pre
+   register: res_inst
+
+ - name: Print result preinstall
+   debug: var=res_inst
+   when: oracle_database_release in versions_12pre
+
+ - name: Preinstall RDBMS Oracle 19c
+   yum: name=oracle-database-preinstall-19c
+   when: "oracle_database_release=='19.4.0.0ee'"
+   register: res_inst
+
+ - name: Print result preinstall
+   debug: var=res_inst
+   when: "oracle_database_release=='19.4.0.0ee'"
+
+#Подготовка к установке и установка бинарников
+ - name: Copy sources for install RDBMS Oracle all version #11.2.0.x, 12, 19
+   yum: name=oracle-rdbms-server-{{ oracle_database_release }}
+   register: res_inst
+
+ - name: Copy oracle rsp file
+   template:
+     src: templates/db{{ oracle_database_release | replace('.','') }}.j2
+     dest: "{{ oracle_database_distr }}/db{{ oracle_database_release | replace('.','') }}.rsp"
+     owner: oracle
+     group: oinstall
+     mode: u=rw,g=r,o=r
+
+ - name: create directory for oracle inventory
+   file:
+     path: "{{ item }}"
+     state: directory
+     mode: 0755
+     owner: oracle
+     group: oinstall
+   with_items:
+     - "{{ oracle_database_inventory_location }}"
+   when: "oracle_database_release=='19.4.0.0ee'"
+   become: yes
+
+ - name: Set owner oracle:oinstall for /u01
+   file:
+     path: "{{ item }}"
+     state: directory
+     owner: oracle
+     group: oinstall
+   with_items:
+     - /u01
+     - "{{ oracle_database_inventory_location }}"
+     - "{{ oracle_database_oracle_base }}"
+     - "{{ oracle_database_oracle_home }}"
+   become: yes

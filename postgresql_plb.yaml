@@ -1,0 +1,14 @@
+- hosts: "{{ host_list }}"
+  become: yes
+  become_user: root
+  vars:
+      mysql_root_password_update: true
+      mysql_enabled_on_startup: true
+  tasks:
+    - include_role:
+         name: subscription
+    - include_role:
+         name: postgresql
+
+
+
